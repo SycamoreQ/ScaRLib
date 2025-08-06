@@ -1,15 +1,7 @@
-/*
- * ScaRLib: A Framework for Cooperative Many Agent Deep Reinforcement learning in Scala
- * Copyright (C) 2023, Davide Domini, Filippo Cavallari and contributors
- * listed, for each module, in the respective subproject's build.gradle.kts file.
- *
- * This file is part of ScaRLib, and is distributed under the terms of the
- * MIT License as described in the file LICENSE in the ScaRLib distribution's top directory.
- */
-
 package it.unibo.scarlib.core.model
 
-import it.unibo.scarlib.core.neuralnetwork.{NeuralNetworkEncoding, SimpleSequentialDQN, TorchSupport}
+
+import it.unibo.scarlib.core.neuralnetwork.{NeuralNetworkEncodingEpidemic, SimpleSequentialDQN, TorchSupport}
 import it.unibo.scarlib.core.util.{Logger, TorchLiveLogger}
 import me.shadaj.scalapy.py
 import me.shadaj.scalapy.py.{PyQuote, SeqConverters}
@@ -25,12 +17,12 @@ import scala.util.Random
  * @param actionSpace all the possible actions an agent can perform
  * @param learningConfiguration all the hyper-parameters specified by the user
  */
-class DeepQLearner(
-    memory: ReplayBuffer[State, Action],
-    actionSpace: Seq[Action],
-    learningConfiguration: LearningConfiguration,
-    logger: Logger
-)(implicit encoding: NeuralNetworkEncoding[State]) extends Learner {
+class DoubleDeepQLearner(
+                    memory: EpidemicReplayBuffer[EpidemicState , EpidemicAction],
+                    actionSpace: Seq[EpidemicAction],
+                    learningConfiguration: LearningConfiguration,
+                    logger: Logger
+                  )(implicit encoding: NeuralNetworkEncodingEpidemic[EpidemicState]) extends EpidemicLearner {
 
   private val random = learningConfiguration.random
   private val learningRate = learningConfiguration.learningRate
@@ -42,15 +34,15 @@ class DeepQLearner(
   private val device = AutodiffDevice()
   private val targetNetwork = learningConfiguration.dqnFactory.createNN().asInstanceOf[py.Dynamic]
   private val policyNetwork = learningConfiguration.dqnFactory.createNN().asInstanceOf[py.Dynamic]
-  private val targetPolicy = DeepQLearner.policyFromNetwork(policyNetwork, encoding, actionSpace)
-  private val behaviouralPolicy = DeepQLearner.policyFromNetwork(policyNetwork, encoding, actionSpace)
+  private val targetPolicy = DoubleDeepQLearner.policyFromNetwork(policyNetwork, encoding, actionSpace)
+  private val behaviouralPolicy = DoubleDeepQLearner.policyFromNetwork(policyNetwork, encoding, actionSpace)
   private val optimizer = TorchSupport.optimizerModule().RMSprop(policyNetwork.parameters(), learningRate)
 
   /** Gets the optimal policy */
-  override val optimal: State => Action = targetPolicy
+  override val optimal: EpidemicState => EpidemicAction = targetPolicy
 
   /** Gets the behavioural policy */
-  override val behavioural: State => Action =
+  override val behavioural: EpidemicState => EpidemicAction =
     state =>
       if (random.nextDouble() < epsilon.value()) {
         random.shuffle(actionSpace).head
@@ -112,23 +104,23 @@ class DeepQLearner(
   }
 }
 
-object DeepQLearner {
+object DoubleDeepQLearner {
 
   /** Uploads the policy from a snapshot */
-  def policyFromNetworkSnapshot[S <: State, A](
-      path: String,
-      encoding: NeuralNetworkEncoding[S],
-      inputSize: Int,
-      hiddenSize: Int,
-      actionSpace: Seq[A]
-  ): S => A = {
+  def policyFromNetworkSnapshot[S <: EpidemicState, EpidemicAction](
+                                                path: String,
+                                                encoding: NeuralNetworkEncodingEpidemic[S],
+                                                inputSize: Int,
+                                                hiddenSize: Int,
+                                                actionSpace: Seq[EpidemicAction]
+                                              ): S => EpidemicAction = {
     val model = SimpleSequentialDQN(inputSize, hiddenSize, actionSpace.size)
     model.load_state_dict(TorchSupport.deepLearningLib().load(path, map_location = AutodiffDevice()))
     policyFromNetwork(model, encoding, actionSpace)
   }
 
   /** Gets the policy from the network which approximates it */
-  def policyFromNetwork[S <: State, A](network: py.Dynamic, encoding: NeuralNetworkEncoding[S], actionSpace: Seq[A]): S => A = { state =>
+  def policyFromNetwork[S <: EpidemicState, EpidemicAction ](network: py.Dynamic, encoding: NeuralNetworkEncodingEpidemic[S], actionSpace: Seq[EpidemicAction]): S => EpidemicAction = { state =>
     val netInput = encoding.toSeq(state)
     py.`with`(TorchSupport.deepLearningLib().no_grad()) { _ =>
       val tensor =
@@ -138,3 +130,4 @@ object DeepQLearner {
     }
   }
 }
+
