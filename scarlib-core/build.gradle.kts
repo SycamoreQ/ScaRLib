@@ -32,6 +32,12 @@ dependencies {
     testImplementation(libs.scalaTest)
     testImplementation(libs.scalaTestPlus)
     testImplementation(libs.junit)
+    implementation("org.apache.spark:spark-core_2.12:3.5.0")
+    implementation("org.apache.spark:spark-sql_2.12:3.5.0")
+    implementation("org.apache.spark:spark-mllib_2.12:3.5.0")
+    implementation ("org.apache.spark:spark-streaming_2.12:3.5.0")
+    // Spark Streaming Kafka integration (if using Kafka)
+    implementation ("org.apache.spark:spark-streaming-kafka-0-10_2.12:3.5.0")
 }
 
 publishing.publications {
