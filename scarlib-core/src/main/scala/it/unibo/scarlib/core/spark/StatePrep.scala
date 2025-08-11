@@ -39,6 +39,25 @@ object Loader  {
       .repartition(200)
   }
 
+  def LoadTravelData(spark : SparkSession , dataPath: String) : DataFrame = {
+    val migrationSchema = StructType(Array(
+      StructField("location_id", IntegerType, true),
+      StructField("currentDate", DateType, true),
+      StructField("airport_code", StringType, true),
+      StructField("incoming_travelers", IntegerType, true),
+      StructField("outgoing_travelers", IntegerType, true),
+      StructField("origin_location", StringType, true),
+      StructField("destination_location", StringType, true)
+    ))
+
+    val rawMigrationDF = spark.read
+      .schema(migrationSchema)
+      .option("multiline", "true")
+      .csv(dataPath)
+
+    rawMigrationDF
+  }
+
   def CreateState(df : DataFrame): DataFrame = {
     df.select(
       col("location_id"),
@@ -93,6 +112,19 @@ object Loader  {
         ageDistribution = ageDistribution
       )
     }
+  }
+
+  def agg(sparkSession: SparkSession , df : DataFrame , dataPath: String) : DataFrame = {
+    val migrationdf = LoadTravelData(sparkSession, dataPath)
+
+    migrationdf
+      .groupBy("airport_code", "incoming_travellers", "outgoing_travellers")
+      .agg(
+        collect_set(struct("airport_code", "incoming_travellers")).as("incoming_travellers"),
+        collect_set(struct("airport_code", "outgoing_travellers")).as("outgoing_travellers"),
+        sum("incoming_travellers").as("total_incoming"),
+        sum("outgoing_travellers").as("total_outgoing")
+      )
   }
 }
 

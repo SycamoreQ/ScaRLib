@@ -54,6 +54,9 @@ class EmptyState extends State {
 
 
 
+
+
+
 object EmptyState {
   implicit val encoding: NeuralNetworkEncoding[State] = new NeuralNetworkEncoding[State] {
       override def elements(): Int = 0
@@ -133,6 +136,48 @@ case class EpidemicState (
     }
   }
 
+  def BilateralVolume(
+                       c1: EpidemicState,
+                       c2: EpidemicState
+                     ): (Int, Int) = {
+    val c1_c2 = c1.getTravelVolumeTo(c1.location)
+    val c2_c1 = c2.getTravelVolumeTo(c2.location)
+    (c1_c2, c2_c1)
+  }
+
+  def getTotalTravelVolumeBetween(
+                                   country1: EpidemicState,
+                                   country2: EpidemicState
+                                 ): Int = {
+    val (vol1to2, vol2to1) = BilateralVolume(country1, country2)
+    vol1to2 + vol2to1
+  }
+
+  def getMostConnectedCountries(
+                                 targetCountry: EpidemicState,
+                                 allCountries: Seq[EpidemicState],
+                                 topN: Int = 5
+                               ): Seq[(String, Int)] = {
+    allCountries
+      .filter(_.location != targetCountry.location)
+      .map(country => (country.location, getTotalTravelVolumeBetween(targetCountry, country)))
+      .sortBy(_._2)(Ordering.Int.reverse)
+      .take(topN)
+  }
+
+  def calculateTravelInfectionRisk(
+                                    originCountry: EpidemicState,
+                                    destinationCountry: EpidemicState
+                                  ): Double = {
+    val travelVolume = originCountry.getTravelVolumeTo(destinationCountry.location)
+    val originInfectionRate = originCountry.getInfectionRate()
+    val destinationPopulation = destinationCountry.getTotalPopulation()
+
+    if (destinationPopulation > 0 && travelVolume > 0) {
+      (travelVolume * originInfectionRate) / destinationPopulation
+    } else 0.0
+  }
+
   def updateTravelData(
                         newIncoming: Map[String, Int],
                         newOutgoing: Map[String, Int],
@@ -146,53 +191,13 @@ case class EpidemicState (
     )
   }
 
+
+
   object EpidemicState {
     implicit val encoding: NeuralNetworkEncodingEpidemic[EpidemicState] = new NeuralNetworkEncodingEpidemic[EpidemicState] {
       override def elements(): Int = 0
 
       override def toSeq(element: EpidemicState): Seq[Double] = Seq.empty[Double]
-    }
-
-    def BilateralVolume(
-                         c1: EpidemicState,
-                         c2: EpidemicState
-                       ): (Int, Int) = {
-      val c1_c2 = c1.getTravelVolumeTo(c1.location)
-      val c2_c1 = c2.getTravelVolumeTo(c2.location)
-      (c1_c2, c2_c1)
-    }
-
-    def getTotalTravelVolumeBetween(
-                                     country1: EpidemicState,
-                                     country2: EpidemicState
-                                   ): Int = {
-      val (vol1to2, vol2to1) = BilateralVolume(country1, country2)
-      vol1to2 + vol2to1
-    }
-
-    def getMostConnectedCountries(
-                                   targetCountry: EpidemicState,
-                                   allCountries: Seq[EpidemicState],
-                                   topN: Int = 5
-                                 ): Seq[(String, Int)] = {
-      allCountries
-        .filter(_.location != targetCountry.location)
-        .map(country => (country.location, getTotalTravelVolumeBetween(targetCountry, country)))
-        .sortBy(_._2)(Ordering.Int.reverse)
-        .take(topN)
-      }
-
-    def calculateTravelInfectionRisk(
-                                      originCountry: EpidemicState,
-                                      destinationCountry: EpidemicState
-                                    ): Double = {
-      val travelVolume = originCountry.getTravelVolumeTo(destinationCountry.location)
-      val originInfectionRate = originCountry.getInfectionRate()
-      val destinationPopulation = destinationCountry.getTotalPopulation()
-
-      if (destinationPopulation > 0 && travelVolume > 0) {
-        (travelVolume * originInfectionRate) / destinationPopulation
-      } else 0.0
     }
   }
 }
