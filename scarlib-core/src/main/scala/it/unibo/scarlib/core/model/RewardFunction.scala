@@ -62,6 +62,15 @@ trait RewardFunction {
           }
           reward
         }
+
+        def geoLoc(diseaseCountry: Seq[EpidemicState] , neighbours : Seq[EpidemicState]): Double = {
+          val spread: Seq[Double] = neighbours.map(_.radiusOfAffect(diseaseCountry, neighbours))
+
+          spread match {
+            case spread < 10 => reward += curr.getInfectionRate * 100
+            case _ => reward += curr.getInfectionRate * 10
+          }
+        }
       }
     }
   }
