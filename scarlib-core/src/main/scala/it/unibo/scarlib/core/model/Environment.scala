@@ -36,7 +36,7 @@ abstract class Environment(rewardFunction: RewardFunction, actionSpace: Seq[Acti
 
 }
 
-abstract class EpidemicEnvironment(rewardFunction: RewardFunction , actionSpace: Seq[Action]) {
+abstract class EpidemicEnvironment(rewardFunction: RewardFunction , actionSpace: Seq[EpidemicAction]) {
   /** A single interaction with an agent
    *
    * @param action the action performed by the agent
