@@ -22,7 +22,7 @@ trait State {
 
 }
 
-trait EpidemicState {
+trait EpidemicStateX {
   def isEmpty():Boolean
 }
 
@@ -124,7 +124,7 @@ case class EpidemicState (
 }
 
 /** An empty state */
-class EmptyState extends EpidemicState {
+class EmptyState extends EpidemicStateX {
   override def isEmpty(): Boolean = true
 
   object EmptyState {
@@ -137,7 +137,7 @@ class EmptyState extends EpidemicState {
 }
 
 
-class EmptyEpidemicState extends EpidemicState{
+class EmptyEpidemicState extends EpidemicStateX{
   override def isEmpty(): Boolean = true
 
   object EmptyState {

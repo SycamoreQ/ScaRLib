@@ -73,5 +73,34 @@ object RewardFunctionEpidemic {
     }
   }
 
+  case class airportfunc(diseaseCountry: EpidemicState , targetCountry : Seq[EpidemicState] , param : RewardFunctionStepParam) extends RewardFunctionStep(param) {
+    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): py.Dynamic = {
+      val migrationInfo = currentState.getMostConnectedCountries(diseaseCountry , targetCountry)
+      var reward: Double = 0.0
+
+      migrationInfo match {
+        case migrationInfo.headOption => reward += currentState.getInfectionRate*100
+        case _ => reward += currentState.getInfectionRate*10
+      }
+
+      val rewardTensor = Tensor(reward)
+      rewardTensor.x
+    }
+  }
+
+  case class HospitalCause(param: RewardFunctionStepParam) extends RewardFunctionStep(param){
+    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
+      val hCapacity = currentState.hospitalCapacity
+      var reward: Double = 0.0
+
+      hCapacity match{
+        case hCapacity > 10000 => reward += currentState.getInfectionRate*100
+        case _ => reward += currentState.getInfectionRate*2
+      }
+    }
+
+
+  }
+
 
 }
