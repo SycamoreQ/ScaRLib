@@ -97,10 +97,43 @@ object RewardFunctionEpidemic {
         case hCapacity > 10000 => reward += currentState.getInfectionRate*100
         case _ => reward += currentState.getInfectionRate*2
       }
+
+      val rewardTensor = Tensor(reward)
+      rewardTensor.x
     }
-
-
   }
 
+  case class VaccinationDrive(param: RewardFunctionStepParam) extends RewardFunctionStep(param){
+    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
+      var reward : Double = 0.0
 
+      val vaccinated = currentState.vaccinatedPopulation
+
+      vaccinated match{
+        case vaccinated > currentState.infected => reward -= currentState.getVaccinationRate*10
+        case vaccinated > currentState.incomingTravelers => reward -= currentState.getVaccinationRate*100
+        case vaccinated > currentState.outgoingTravelers =>  reward -= currentState.getVaccinationRate*100
+        case _ => reward += currentState.getVaccinationRate*10
+      }
+
+      val rewardTensor = Tensor(reward)
+      rewardTensor.x
+    }
+  }
+
+  case class geoLocation(diseaseCountry: EpidemicState, param: RewardFunctionStepParam) extends RewardFunctionStep(param){
+    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
+      var reward : Double = 0.0
+
+      val spread : Seq[EpidemicState] = currentState.radiusOfAffect(diseaseCountry)
+
+      spread match {
+        case spread > 1000 => reward += currentState.getInfectionRate*100
+        case _ => reward -= currentState.getInfectionRate*10
+      }
+
+      val rewardTensor = Tensor(reward)
+      rewardTensor.x
+    }
+  }
 }

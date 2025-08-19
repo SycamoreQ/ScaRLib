@@ -37,6 +37,7 @@ case class EpidemicState (
                                      airports: List[String],
                                      vaccinatedPopulation: Int = 0,
                                      travelVolume: Int = 0,
+                                     neighbours : Seq[EpidemicState],
                                      currentDate: String,
                                      previousInfected: Int = 0,
                                      previousRecovered: Int = 0,
@@ -120,6 +121,23 @@ case class EpidemicState (
     if (destinationPopulation > 0 && travelVolume > 0) {
       (travelVolume * originInfectionRate) / destinationPopulation
     } else 0.0
+  }
+
+  def radiusOfAffect(
+                                    originCountry: EpidemicState,
+                                    radius: Double = 5.0,
+                                    beta: Double = 0.9
+                                  ): Seq[EpidemicState] = {
+    val neighbours: Seq[EpidemicState] = originCountry.neighbours
+
+    neighbours.map { neighbour =>
+      val newInfections = (beta * originCountry.infected * neighbour.susceptible / neighbour.getTotalPopulation()).toInt
+      val clampedNew = math.min(newInfections, neighbour.susceptible)
+      neighbour.copy(
+        susceptible = neighbour.susceptible - clampedNew,
+        infected = neighbour.infected + clampedNew
+      )
+    }
   }
 }
 
