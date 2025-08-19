@@ -69,6 +69,8 @@ object RewardFunctionEpidemic {
     case class hospitalUtilization(param: RewardFunctionStepParam) extends RewardFunctionStep(param) {
       override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
         val rewardValue: Double = if (currentState.getHospitalUtilization > 1.0) -200.0 else (-currentState.getHospitalUtilization * 100)
+        val rewardTensor = Tensor(rewardValue)
+        rewardTensor.x
       }
     }
   }
