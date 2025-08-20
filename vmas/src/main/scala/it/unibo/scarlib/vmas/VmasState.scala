@@ -40,9 +40,9 @@ class VMASState(val tensor: py.Dynamic) extends State {
 }
 
 
-class VMASSEpidemicState(val tensor: py.Dynamic) extends EpidemicState{
-  override def isEmpty(): Boolean = false
+class VMASSEpidemicState(val tensor: py.Dynamic) extends EpidemicState_{
 
+  def isEmpty(): Boolean = false
 
 }
 

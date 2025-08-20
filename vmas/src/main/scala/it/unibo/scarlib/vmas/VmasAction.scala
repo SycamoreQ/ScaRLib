@@ -49,3 +49,8 @@ case object EmergencyHealthcareMobilization extends EpidemicAction
 case object NoVaccination extends EpidemicAction
 case object TargetedVaccination extends EpidemicAction
 case object MassVaccination extends EpidemicAction
+
+object RealEpidemicAction{
+  def toSeq: Seq[EpidemicAction] = Seq(NoAction , SocialDistancing , NoTravelRestriction , CompleteTravelLockdown , NormalHealthcare , EmergencyHealthcareMobilization , NoVaccination ,
+    TargetedVaccination , MassVaccination)
+}

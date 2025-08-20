@@ -14,6 +14,7 @@ package it.unibo.scarlib.core.model
 import it.unibo.scarlib.core.neuralnetwork.{NeuralNetworkEncoding, NeuralNetworkEncodingEpidemic}
 
 import scala.math._
+import me.shadaj.scalapy.py
 
 
 /** A generic state in which the environment can be */
@@ -47,7 +48,7 @@ case class EpidemicState (
                                      incomingTravelers: Map[String, Int] = Map.empty, // Origin country -> number of travelers
                                      outgoingTravelers: Map[String, Int] = Map.empty, // Destination country -> number of travelers
                                      airportTraffic: Map[String, Map[String, Int]] = Map.empty // Airport -> (Destination -> Travelers)
-                                   ) {
+                                   )(implicit val tensor : py.Dynamic){
 
   def getInfectionRate: Double = {
     if(infected > 0 ){
