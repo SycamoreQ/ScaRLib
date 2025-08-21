@@ -1,8 +1,9 @@
 package it.unibo.scarlib.vmas
 
-import it.unibo.scarlib.core.model.{Action, EpidemicAction,EpidemicEnvironment, AutodiffDevice, Environment, RewardFunction, State , EpidemicState}
+import it.unibo.scarlib.core.model.{Action, AutodiffDevice, Environment, EpidemicAction, EpidemicEnvironment, EpidemicState, RewardFunction, State}
 import it.unibo.scarlib.core.neuralnetwork.TorchSupport
 import it.unibo.scarlib.core.util.{AgentGlobalStore, Logger}
+import it.unibo.scarlib.vmas.MainEpidemic.dummyTensor
 import it.unibo.scarlib.vmas.WANDBLogger
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -50,7 +51,7 @@ class VmasEpidemicEnvironment(rewardFunction: RewardFunction,
   implicit val ec: ExecutionContext = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
 
   //TODO Handling multiple environments
-  private var lastObservation: List[Option[VMASSEpidemicState]] = List.empty
+  private var lastObservation: List[Option[EpidemicState]] = List.empty
   private var steps = 0
   private var epochs = 0
   private val rendererExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(10));
@@ -72,7 +73,7 @@ class VmasEpidemicEnvironment(rewardFunction: RewardFunction,
     actions = actions :+ action.asInstanceOf[VMASAction].toTensor()
     val nAgents: Int = env.n_agents.as[Int]
     val isLast = nAgents - 1 == agentId
-    val promise = scala.concurrent.Promise[(Double, VMASSEpidemicState)]()
+    val promise = scala.concurrent.Promise[(Double, EpidemicState)]()
     val future = promise.future
     promises = promises :+ promise
     if (isLast) {
@@ -86,7 +87,7 @@ class VmasEpidemicEnvironment(rewardFunction: RewardFunction,
         val reward = rewards.bracketAccess(agentName).as[Double]
         AgentGlobalStore().put(i, s"agent-$i-reward", reward)
         val observation = observations.bracketAccess(agentName)
-        val state = new VMASSEpidemicState(observation)
+        val state = new EpidemicState(observation)
         lastObservation = lastObservation.updated(agentId, Some(state)) //TODO check if this is correct
         promises(i).success((reward, state))
         if (render && steps % 25 == 0) {

@@ -65,7 +65,7 @@ object RewardFunctionEpidemic {
 
       state match {
         case state: EpidemicState =>
-          state.tensor + x._1 * state.getInfectionRate
+          (state.tensor + x._1 * state.getInfectionRate)
 
         case _ =>
           py.eval("0.0")
@@ -189,21 +189,84 @@ object RewardFunctionEpidemic {
     }
   }
 
-  case class geoLocation(diseaseCountry: EpidemicState, param: RewardFunctionStepParam) extends RewardFunctionStep(param){
+  case class geoLocation(x: (py.Dynamic , String) , diseaseCountry : EpidemicState , param : RewardFunctionStepParam) extends RewardFunctionStep(param){
     override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
-      var reward : Double = 0.0
-
-      val spread : Seq[EpidemicState] = currentState.radiusOfAffect(diseaseCountry)
-
-      spread match {
-        case spread > 1000 => reward += currentState.getInfectionRate*100
-        case _ => reward -= currentState.getInfectionRate*10
+      val state = param match {
+        case Prev => currentState
+        case Current => newState
       }
 
-      val rewardTensor = Tensor(reward)
-      rewardTensor.x
+      val spread : Seq[EpidemicState] = state.radiusOfAffect(diseaseCountry)
+
+
+      state match {
+        case state : EpidemicState =>
+          if (spread.map(_.infected) > 1000 ){
+            state.tensor + x._1*state.getInfectionRate*100
+          }
+          else{
+            state.tensor - x._1*state.getInfectionRate*10
+          }
+      }
     }
 
-    case class
+    override def toString: String = {
+      val state = param match {
+        case Prev => "agent.previousState"
+        case Current => "agent.currentState"
+      }
+
+      s"($state + ${x._2})"
+    }
+  }
+
+  case class AddTwoStep(x: RewardFunctionStep, y: RewardFunctionStep) extends RewardFunctionStep(Current) {
+    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any =
+      (x.compute()(currentState, action, newState)).asInstanceOf[py.Dynamic] + (y.compute()(currentState, action, newState)).asInstanceOf[py.Dynamic]
+
+    override def toString: String = s"($x + $y)"
+  }
+
+  case class Add(x: (py.Dynamic, String), y: RewardFunctionStep) extends RewardFunctionStep(Current) {
+    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
+      x._1 + y.compute()(currentState, action, newState).asInstanceOf[py.Dynamic]
+    }
+
+    override def toString: String = s"(${x._2} + $y)"
+  }
+
+  case class Map(x: RewardFunctionStep, lambda: (py.Dynamic, String)) extends RewardFunctionStep(Current) {
+    override def toString: String = s"(${lambda._2})($x)"
+
+    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
+      val returnValue = lambda._1(x.compute()(currentState, action, newState).asInstanceOf[py.Dynamic])
+      returnValue
+    }
+  }
+
+  case class Reduce(x: RewardFunctionStep, lambda: (py.Dynamic, String)) extends RewardFunctionStep(Current) {
+    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
+      val returnValue = lambda._1(x.compute()(currentState, action, newState).asInstanceOf[py.Dynamic]).asInstanceOf[Double]
+      returnValue
+    }
+
+    override def toString: String = s"(${lambda._2})($x)"
+  }
+
+  // Implicit classes for operator overloading
+  implicit class AddTwoStepOps(x: RewardFunctionStep) {
+    def ++(y: RewardFunctionStep): RewardFunctionStep = AddTwoStep(x, y)
+  }
+
+  implicit class AddOps(x: RewardFunctionStep) {
+    def +(y: (py.Dynamic, String)): RewardFunctionStep = Add(y, x)
+  }
+
+  implicit class MapOps(x: RewardFunctionStep) {
+    def -->(y: (py.Dynamic, String)): RewardFunctionStep = Map(x, y)
+  }
+
+  implicit class ReduceOps(x: RewardFunctionStep) {
+    def >>(lambda: (py.Dynamic, String)): RewardFunctionStep = Reduce(x, lambda)
   }
 }
