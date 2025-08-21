@@ -153,36 +153,39 @@ object RewardFunctionEpidemic {
   }
 
 
-  case class HospitalCause(param: RewardFunctionStepParam) extends RewardFunctionStep(param){
+  case class VaccinationDrive(x : (py.Dynamic , String) , param: RewardFunctionStepParam) extends RewardFunctionStep(param){
     override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
-      val hCapacity = currentState.hospitalCapacity
-      var reward: Double = 0.0
-
-      hCapacity match{
-        case hCapacity > 10000 => reward += currentState.getInfectionRate*100
-        case _ => reward += currentState.getInfectionRate*2
+      val state = param match {
+        case Prev => currentState
+        case Current => newState
       }
 
-      val rewardTensor = Tensor(reward)
-      rewardTensor.x
+      val vaccinated  = currentState.vaccinatedPopulation
+
+      state match {
+        case state: EpidemicState =>
+          if (vaccinated > currentState.infected){
+            state.tensor + x._1*state.getVaccinationRate*10
+          }
+          if (vaccinated > state.incomingTravelers){
+            state.tensor + x._1*state.getVaccinationRate*100
+          }
+          if (vaccinated > state.outgoingTravelers){
+            state.tensor + x._1*state.getVaccinationRate*100
+          }
+          else{
+            state.tensor + x._1*state.getVaccinationRate*10
+          }
+      }
     }
-  }
 
-  case class VaccinationDrive(param: RewardFunctionStepParam) extends RewardFunctionStep(param){
-    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
-      var reward : Double = 0.0
-
-      val vaccinated = currentState.vaccinatedPopulation
-
-      vaccinated match{
-        case vaccinated > currentState.infected => reward -= currentState.getVaccinationRate*10
-        case vaccinated > currentState.incomingTravelers => reward -= currentState.getVaccinationRate*100
-        case vaccinated > currentState.outgoingTravelers =>  reward -= currentState.getVaccinationRate*100
-        case _ => reward += currentState.getVaccinationRate*10
+    override def toString: String = {
+      val state = param match {
+        case Prev => "agent.previousState"
+        case Current => "agent.currentState"
       }
 
-      val rewardTensor = Tensor(reward)
-      rewardTensor.x
+      s"($state + ${x._2})"
     }
   }
 
