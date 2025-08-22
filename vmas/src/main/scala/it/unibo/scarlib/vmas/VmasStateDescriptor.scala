@@ -35,7 +35,7 @@ case class VMASEpidemicStateDescriptor (
                              "0-18" -> 0, "19-64" -> 0, "65+" -> 0),
                            incomingTravelers: Map[String, Int] = Map.empty, // Origin country -> number of travelers
                            outgoingTravelers: Map[String, Int] = Map.empty, // Destination country -> number of travelers
-                           airportTraffic: Map[String, Map[String, Int]] = Map.empty // Airport -> (Destination -> Travelers)
+                           airportTraffic: Map[String, Map[String, Int]] = Map.empty, // Airport -> (Destination -> Travelers)
                          )(implicit val tensor : py.Dynamic){
 
   def getInfectionRate: Double = {
@@ -43,6 +43,7 @@ case class VMASEpidemicStateDescriptor (
       (recovered - previousRecovered).toDouble/infected
     }else 0.0
   }
+
 
   def getTotalPopulation(): Int = susceptible + infected + recovered + deaths + exposed
 
@@ -109,23 +110,6 @@ case class VMASEpidemicStateDescriptor (
     if (destinationPopulation > 0 && travelVolume > 0) {
       (travelVolume * originInfectionRate) / destinationPopulation
     } else 0.0
-  }
-
-  def radiusOfAffect(
-                      originCountry: VMASEpidemicStateDescriptor,
-                      radius: Double = 5.0,
-                      beta: Double = 0.9
-                    ): Seq[VMASEpidemicStateDescriptor] = {
-    val neighbours: Seq[VMASEpidemicStateDescriptor] = originCountry.neighbours
-
-    neighbours.map { neighbour =>
-      val newInfections = (beta * originCountry.infected * neighbour.susceptible / neighbour.getTotalPopulation()).toInt
-      val clampedNew = math.min(newInfections, neighbour.susceptible)
-      neighbour.copy(
-        susceptible = neighbour.susceptible - clampedNew,
-        infected = neighbour.infected + clampedNew
-      )
-    }
   }
 }
 

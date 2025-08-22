@@ -24,23 +24,8 @@ trait NeuralNetworkEncoding[A <: State]{
 trait NeuralNetworkEncodingEpidemic[A <: EpidemicState]{
     /** The number of element in the encoding */
 
-    def getInfectionRate: Double
+    def elements(): Int
 
-    def getTotalPopulation : Int
-
-    def getVaccinationRate : Double
-
-    def getTravelVolumeTo(dest : String) : Int
-
-    def airportTravelVolume(code : String , dest : String) : Int
-
-    def BilateralVolume (loc1 : String , loc2 : String) : (Int , Int)
-
-    def getTotalTravelVolume (country1: String , country2 : String) : Int
-
-    def getMostConnectedCountries(source: String , target : Seq[String]) : Seq[(String , Int )]
-
-    def getTravelInfectionRisk(dest : String) : Double
     /** The encoded state */
     def toSeq(element: A): Seq[Double]
 }

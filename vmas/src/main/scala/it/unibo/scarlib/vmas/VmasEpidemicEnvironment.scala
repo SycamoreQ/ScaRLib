@@ -17,7 +17,7 @@ import java.util.concurrent.Executors
 import scala.collection.mutable
 
 class VmasEpidemicEnvironment(rewardFunction: RewardFunction,
-                             actionSpace: Seq[EpidemicAction])
+                              actionSpace: Seq[EpidemicAction])
   extends EpidemicEnvironment (rewardFunction , actionSpace){
 
   private var settings : VmasSettings = _
@@ -87,7 +87,7 @@ class VmasEpidemicEnvironment(rewardFunction: RewardFunction,
         val reward = rewards.bracketAccess(agentName).as[Double]
         AgentGlobalStore().put(i, s"agent-$i-reward", reward)
         val observation = observations.bracketAccess(agentName)
-        val state = new EpidemicState(observation)
+        val state = new VMASEpidemicState(observation)
         lastObservation = lastObservation.updated(agentId, Some(state)) //TODO check if this is correct
         promises(i).success((reward, state))
         if (render && steps % 25 == 0) {
@@ -115,7 +115,7 @@ class VmasEpidemicEnvironment(rewardFunction: RewardFunction,
   override def observe(agentId: Int): EpidemicState = {
     lastObservation(agentId) match {
       case Some(state) => state
-      case None => new VMASState(TorchSupport.deepLearningLib().from_numpy(TorchSupport.arrayModule.zeros(VMASState.encoding.elements())))
+      case None => new VMASEpidemicState(TorchSupport.deepLearningLib().from_numpy(TorchSupport.arrayModule.zeros(VMASEpidemicState.encoding.elements())))
     }
   }
 

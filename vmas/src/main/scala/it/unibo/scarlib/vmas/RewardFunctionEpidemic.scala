@@ -1,12 +1,9 @@
 package it.unibo.scarlib.vmas
 
-import it.unibo.scarlib.core.model
-import it.unibo.scarlib.core.model.{EpidemicAction, EpidemicState, RewardFunction, State}
-import it.unibo.scarlib.vmas.RewardFunctionDSL.{RewardFunctionStepParam, rf}
+import it.unibo.scarlib.core.model.{EpidemicAction, EpidemicState, RewardFunction}
+import it.unibo.scarlib.vmas.RewardFunctionDSL.{CurrentState, NewState, RewardFunctionStepParam}
 import me.shadaj.scalapy.interpreter.CPythonInterpreter
 import me.shadaj.scalapy.py
-import me.shadaj.scalapy.py.PyQuote
-
 
 import scala.language.implicitConversions
 
@@ -29,11 +26,11 @@ object RewardFunctionEpidemic {
 
   trait RewardFunctionStepParam
 
-  case object Prev extends RewardFunctionStepParam
+  case object CurrentState extends RewardFunctionStepParam
 
   case object Action extends RewardFunctionStepParam
 
-  case object Current extends RewardFunctionStepParam
+  case object NewState extends RewardFunctionStepParam
 
 
   case class Tensor(x: py.Dynamic, stringed: String)
@@ -56,178 +53,145 @@ object RewardFunctionEpidemic {
 
   def asTensor(values: Seq[Double]): py.Dynamic = py.module("torch").tensor(py.Dynamic)
 
-  case class InfectionPenalty(x: (py.Dynamic , String) , param: RewardFunctionStepParam) extends RewardFunctionStep(param) {
-    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): py.Dynamic = {
-      val state = param match {
-        case Prev => currentState
-        case Current => newState
-      }
 
-      state match {
-        case state: EpidemicState =>
-          (state.tensor + x._1 * state.getInfectionRate)
-
-        case _ =>
-          py.eval("0.0")
-      }
-    }
-
-    override def toString: String = {
-      val state = param match {
-        case Prev => "agent.previousstate"
-        case Current => "agent.currentstate"
-      }
-      s"($state + ${x._2})"
-    }
-  }
-
-  case class hospitalUtilization(x : (py.Dynamic , String) , param : RewardFunctionStepParam) extends RewardFunctionStep(param){
-    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
-      val state = param match {
-        case Prev => currentState
-        case Current => newState
-      }
-
-      val hUtil = state.getHospitalUtilization
-
-      state match {
-        case state : EpidemicState =>
-          if (hUtil > 10000){
-            state.tensor + x._1*state.getHospitalUtilization*100
-          }
-          else if (hUtil > 1000) {
-            state.tensor + x._1 * state.getHospitalUtilization*10
-          }
-          else {
-            state.tensor + x._1 * state.getHospitalUtilization*2
-          }
-
-        case _ =>
-          py.eval("0.0")
-      }
-    }
-
-    override def toString: String = {
-      val state = param match {
-        case Prev => "agent.previousState"
-        case Current => "agent.currentState"
-      }
-
-      s"($state + ${x._2})"
-    }
-  }
-
-  case class airportfunc(x: (py.Dynamic, String), diseaseCountry: EpidemicState, targetCountry: Seq[EpidemicState], param: RewardFunctionStepParam)
-    extends RewardFunctionStep(param) {
-
+  case class InfectionPenalty(x: (py.Dynamic, String) , param : RewardFunctionStepParam) extends RewardFunctionStep(param) {
     override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): py.Dynamic = {
 
       val state = param match {
-        case Prev => currentState
-        case Current => newState
+        case CurrentState => currentState
+        case NewState => newState
       }
 
-      // Get migration info as Seq[(String, Int)]
-      val migrationInfo: Seq[(String, Int)] = currentState.getMostConnectedCountries(diseaseCountry, targetCountry)
+      state  match {
+        case s: VMASEpidemicState =>
+          val infRate = s.getInfectionRate
+          s.tensor + x._1 * infRate * 100
 
-      // Base tensor from x
-      val baseTensor = x._1
-
-      // Compute penalty/bonus
-      val penaltyTensor = migrationInfo.headOption match {
-        case Some(_) => baseTensor + state.tensor * state.getInfectionRate * 100
-        case None    => baseTensor + state.tensor * state.getInfectionRate * 10
+        case _ => return py.eval("0.0")
       }
-
-      penaltyTensor
     }
 
-    override def toString: String = {
+  override def toString: String = {
       val state = param match {
-        case Prev => "agent.previousState"
-        case Current => "agent.currentState"
+        case CurrentState => "agent.currentstate"
+        case NewState => "agent.newstate"
       }
-
       s"($state + ${x._2})"
     }
   }
 
+  case class hospitalUtilization(x: (py.Dynamic, String) , param : RewardFunctionStepParam) extends RewardFunctionStep(param) {
+    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): py.Dynamic = {
 
-  case class VaccinationDrive(x : (py.Dynamic , String) , param: RewardFunctionStepParam) extends RewardFunctionStep(param){
-    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
       val state = param match {
-        case Prev => currentState
-        case Current => newState
+        case CurrentState => currentState
+        case NewState => newState
       }
 
-      val vaccinated  = currentState.vaccinatedPopulation
+      state  match {
+        case s: VMASEpidemicState =>
+          val hUtil = s.getHospitalUtilization
+
+          if (hUtil > 10000) {
+            s.tensor + x._1 * hUtil * 100
+          }
+
+          if (hUtil > 1000){
+            s.tensor + x._1*hUtil*10
+          }
+
+          else{
+            s.tensor + x._1 *hUtil*2
+          }
+
+        case _ => return py.eval("0.0")
+      }
+    }
+
+    override def toString: String = {
+      val state = param match {
+        case CurrentState => "agent.currentstate"
+        case NewState => "agent.newstate"
+      }
+      s"($state + ${x._2})"
+    }
+  }
+
+  case class VaccinationDrive(x: (py.Dynamic, String) , param : RewardFunctionStepParam) extends RewardFunctionStep(param) {
+    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): py.Dynamic = {
+
+      val state = param match {
+        case CurrentState => currentState
+        case NewState => newState
+      }
 
       state match {
-        case state: EpidemicState =>
-          if (vaccinated > currentState.infected){
-            state.tensor + x._1*state.getVaccinationRate*10
+        case s: VMASEpidemicState =>
+          val vaccinated = s.getVaccinationRate
+          val infected = s.epidemicData.map(_.infected)
+          val incomingTravellers = s.epidemicData.map(_.incomingTravelers)
+          val outgoingTravellers = s.epidemicData.map(_.outgoingTravelers)
+
+          if (vaccinated > infected) {
+            s.tensor - x._1 * vaccinated * 100
           }
-          if (vaccinated > state.incomingTravelers){
-            state.tensor + x._1*state.getVaccinationRate*100
+
+          if (vaccinated > incomingTravellers){
+            s.tensor + x._1*vaccinated*10
           }
-          if (vaccinated > state.outgoingTravelers){
-            state.tensor + x._1*state.getVaccinationRate*100
-          }
+
           else{
-            state.tensor + x._1*state.getVaccinationRate*10
+            s.tensor + x._1 *vaccinated*2
           }
+
+        case _ => py.eval("0.0")
       }
     }
 
     override def toString: String = {
       val state = param match {
-        case Prev => "agent.previousState"
-        case Current => "agent.currentState"
+        case CurrentState => "agent.currentstate"
+        case NewState => "agent.newstate"
       }
-
       s"($state + ${x._2})"
     }
   }
 
-  case class geoLocation(x: (py.Dynamic , String) , diseaseCountry : EpidemicState , param : RewardFunctionStepParam) extends RewardFunctionStep(param){
-    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
+  case class airportFunc(x: (py.Dynamic, String) , diseaseCountry: String , targetCountry : Seq[String] ,  param : RewardFunctionStepParam) extends RewardFunctionStep(param) {
+    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): py.Dynamic = {
+
       val state = param match {
-        case Prev => currentState
-        case Current => newState
+        case CurrentState => currentState
+        case NewState => newState
       }
-
-      val spread : Seq[EpidemicState] = state.radiusOfAffect(diseaseCountry)
-
 
       state match {
-        case state : EpidemicState =>
-          if (spread.map(_.infected) > 1000 ){
-            state.tensor + x._1*state.getInfectionRate*100
+        case s: VMASEpidemicState =>
+          val vaccinated = s.epidemicData.map(_.getMostConnectedCountries(diseaseCountry , targetCountry))
+          vaccinated match {
+            case vaccinated.headOption => s.tensor * s.getInfectionRate * 100
           }
-          else{
-            state.tensor - x._1*state.getInfectionRate*10
-          }
+        case _ => py.eval("0.0")
       }
     }
 
     override def toString: String = {
       val state = param match {
-        case Prev => "agent.previousState"
-        case Current => "agent.currentState"
+        case CurrentState => "agent.currentstate"
+        case NewState => "agent.newstate"
       }
-
       s"($state + ${x._2})"
     }
   }
 
-  case class AddTwoStep(x: RewardFunctionStep, y: RewardFunctionStep) extends RewardFunctionStep(Current) {
+  case class AddTwoStep(x: RewardFunctionStep, y: RewardFunctionStep) extends RewardFunctionStep(CurrentState) {
     override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any =
       (x.compute()(currentState, action, newState)).asInstanceOf[py.Dynamic] + (y.compute()(currentState, action, newState)).asInstanceOf[py.Dynamic]
 
     override def toString: String = s"($x + $y)"
   }
 
-  case class Add(x: (py.Dynamic, String), y: RewardFunctionStep) extends RewardFunctionStep(Current) {
+  case class Add(x: (py.Dynamic, String), y: RewardFunctionStep) extends RewardFunctionStep(CurrentState) {
     override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
       x._1 + y.compute()(currentState, action, newState).asInstanceOf[py.Dynamic]
     }
@@ -235,7 +199,7 @@ object RewardFunctionEpidemic {
     override def toString: String = s"(${x._2} + $y)"
   }
 
-  case class Map(x: RewardFunctionStep, lambda: (py.Dynamic, String)) extends RewardFunctionStep(Current) {
+  case class Map(x: RewardFunctionStep, lambda: (py.Dynamic, String)) extends RewardFunctionStep(CurrentState) {
     override def toString: String = s"(${lambda._2})($x)"
 
     override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
@@ -244,7 +208,7 @@ object RewardFunctionEpidemic {
     }
   }
 
-  case class Reduce(x: RewardFunctionStep, lambda: (py.Dynamic, String)) extends RewardFunctionStep(Current) {
+  case class Reduce(x: RewardFunctionStep, lambda: (py.Dynamic, String)) extends RewardFunctionStep(CurrentState) {
     override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
       val returnValue = lambda._1(x.compute()(currentState, action, newState).asInstanceOf[py.Dynamic]).asInstanceOf[Double]
       returnValue
