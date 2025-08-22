@@ -14,7 +14,6 @@ import scala.math._
 
 
 
-// 1. PROPER DESCRIPTOR - Only describes structure, no data
 case class VMASEpidemicStateDescriptor(
                                         tensorSize: Int = 15,
                                         hasPopulationFeatures: Boolean = true,
@@ -25,7 +24,6 @@ case class VMASEpidemicStateDescriptor(
   def getTensorSize: Int = tensorSize
 }
 
-// 2. EPIDEMIC DATA - Separate from descriptor
 case class EpidemicData(
                          susceptible: Int,
                          infected: Int,
@@ -114,7 +112,7 @@ case class EpidemicData(
   }
 }
 
-// 3. CLEAN STATE CLASS - Holds tensor + optional data
+
 class VMASEpidemicState(
                          val tensor: py.Dynamic,
                          val epidemicData: Option[EpidemicData] = None
@@ -122,7 +120,6 @@ class VMASEpidemicState(
 
   override def isEmpty(): Boolean = false
 
-  // Delegate to data or extract from tensor
   def getInfectionRate: Double = {
     epidemicData.map(_.getInfectionRate).getOrElse(extractFromTensor("infection_rate"))
   }
@@ -155,7 +152,6 @@ class VMASEpidemicState(
   }
 }
 
-// 4. CLEAN ENCODING - Only tensor conversion
 object VMASEpidemicState {
 
   def apply(array: py.Dynamic): VMASEpidemicState =
@@ -170,7 +166,6 @@ object VMASEpidemicState {
   implicit val encoding: NeuralNetworkEncodingEpidemic[EpidemicState] =
     new NeuralNetworkEncodingEpidemic[EpidemicState] {
 
-      // ONLY encoding responsibility - no business logic
       override def elements(): Int = stateDescriptor match {
         case Some(descriptor) => descriptor.getTensorSize
         case None => 15 // default
@@ -182,7 +177,6 @@ object VMASEpidemicState {
     }
 }
 
-// 5. UTILITY FOR DATA-TO-TENSOR CONVERSION
 object EpidemicDataEncoder {
 
   def encodeToTensor(data: EpidemicData): py.Dynamic = {
