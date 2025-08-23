@@ -1,46 +1,79 @@
+/*
+ * ScaRLib: A Framework for Cooperative Many Agent Deep Reinforcement learning in Scala
+ * Copyright (C) 2023, Davide Domini, Filippo Cavallari and contributors
+ * listed, for each module, in the respective subproject's build.gradle.kts file.
+ *
+ * This file is part of ScaRLib, and is distributed under the terms of the
+ * MIT License as described in the file LICENSE in the ScaRLib distribution's top directory.
+ */
+
 package it.unibo.scarlib.core.system
 
-import scala.annotation.tailrec
-import it.unibo.scarlib.core.model.{Environment, State , EpidemicState , EpidemicEnvironment}
-import it.unibo.scarlib.core.neuralnetwork.{NeuralNetworkEncoding, NeuralNetworkEncodingEpidemic , NeuralNetworkSnapshot}
+import it.unibo.scarlib.core.model.{Action, Decay, DeepQLearner, DoubleDeepQLearner, Environment, EpidemicAction, EpidemicEnvironment, EpidemicReplayBuffer, EpidemicState, LearningConfiguration, ReplayBuffer, State}
+import it.unibo.scarlib.core.util.{Logger, TorchLiveLogger}
+import it.unibo.scarlib.core.neuralnetwork.{NeuralNetworkEncoding, NeuralNetworkEncodingEpidemic, NeuralNetworkSnapshot}
 
+import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext
 import scala.concurrent.{Await, Future}
 
-/** A system in which agents work in a Decentralized Training Decentralized Execution way
+/** A system in which agents work in a Centralized Training Decentralized Execution way
  *
  * @param agents all the agents
  * @param environment the environment in which the agents interact
+ * @param dataset the global container of agents experience
+ * @param actionSpace all the possible actions an agent can perform
+ * @param learningConfiguration all the hyper-parameters specified by the user
+ * @param context the [[ExecutionContext]], it is used to configure how and on which thread pools asynchronous tasks (such as Futures) will run
  */
+class EpidemicSystem(
+                  agents: Seq[EpidemicAgent],
+                  environment: EpidemicEnvironment,
+                  dataset: ReplayBuffer[EpidemicState, EpidemicAction],
+                  actionSpace: Seq[EpidemicAction],
+                  learningConfiguration: LearningConfiguration,
+                  logger: Logger = TorchLiveLogger
+                )(implicit context: ExecutionContext, encoding: NeuralNetworkEncodingEpidemic[EpidemicState]) {
 
-class EpidemicSystem (
-  agents: Seq[EpidemicAgent],
-  environment: EpidemicEnvironment
-                     )(implicit context : ExecutionContext , encoding: NeuralNetworkEncodingEpidemic[EpidemicState]) {
+  private val epsilon: Decay[Double] = learningConfiguration.epsilon
+
+  private val learner = new DoubleDeepQLearner(dataset, actionSpace, learningConfiguration, logger)
+
+
+
 
   /** Starts the learning process
    *
-   * @param Epidemicepisodes      the number of episodes agents are trained for
-   * @param EpidemicepisodeLength the length of each episode
+   * @param episodes the number of episodes agents are trained for
+   * @param episodeLength the length of each episode
    */
   @tailrec
-  final def learn(Epidemicepisodes: Int , EpidemicepisodeLength: Int): Unit = {
+  final def learn(episodes: Int, episodeLength: Int): Unit = {
     @tailrec
-    def singleEpisode(time: Int): Unit = {
+    def singleEpisode(time: Int): Unit =
       if (time > 0) {
-        agents.foreach(_.step())
+        println("Time: " + time)
+        agents.foreach(_.notifyNewPolicy(learner.behavioural))
+        Await.ready(Future.sequence(agents.map(_.step())), scala.concurrent.duration.Duration.Inf)
         environment.log()
+        learner.improve()
         singleEpisode(time - 1)
       }
+
+    if (episodes > 0) {
+      println("Episode: " + episodes)
+      environment.reset()
+      singleEpisode(episodeLength)
+      epsilon.update()
+      learner.snapshot(episodes, 0)
+      learn(episodes - 1, episodeLength)
     }
 
-    if (Epidemicepisodes > 0){
-      println("Episode : " + Epidemicepisodes)
-      environment.reset()
-      singleEpisode(EpidemicepisodeLength)
-      agents.foreach(_.snapshot(Epidemicepisodes))
-      learn(Epidemicepisodes - 1 , EpidemicepisodeLength)
-    }
+  }
+
+  final def learn(episodes: Int, episodeLength: Int, snapshot: String): Unit = {
+    learner.loadSnapshot(snapshot)
+    learn(episodes, episodeLength)
   }
 
   /** Starts the testing process
@@ -49,15 +82,20 @@ class EpidemicSystem (
    * @param policy the snapshot of the policy to be used
    */
   final def runTest(episodeLength: Int, policy: NeuralNetworkSnapshot): Unit = {
-    agents.foreach(_.setTestPolicy(policy))
+    val p: EpidemicState => EpidemicAction =
+      DoubleDeepQLearner.policyFromNetworkSnapshot(policy.path, encoding, policy.inputSize, policy.hiddenSize, actionSpace)
+    agents.foreach(_.notifyNewPolicy(p))
     environment.reset()
     episode(episodeLength)
 
     @tailrec
     def episode(time: Int): Unit = {
-      agents.foreach(_.step())
-      episode(time - 1)
+      println(time)
+      if (time > 0) {
+        Await.ready(Future.sequence(agents.map(_.step())), scala.concurrent.duration.Duration.Inf)
+        episode(time - 1)
+      }
     }
   }
-}
 
+}

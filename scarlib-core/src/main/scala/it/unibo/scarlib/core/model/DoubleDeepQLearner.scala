@@ -18,7 +18,7 @@ import scala.util.Random
  * @param learningConfiguration all the hyper-parameters specified by the user
  */
 class DoubleDeepQLearner(
-                    memory: EpidemicReplayBuffer[EpidemicState , EpidemicAction],
+                    memory: ReplayBuffer[EpidemicState , EpidemicAction],
                     actionSpace: Seq[EpidemicAction],
                     learningConfiguration: LearningConfiguration,
                     logger: Logger

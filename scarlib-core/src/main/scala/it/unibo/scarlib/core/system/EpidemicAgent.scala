@@ -1,69 +1,55 @@
+/*
+ * ScaRLib: A Framework for Cooperative Many Agent Deep Reinforcement learning in Scala
+ * Copyright (C) 2023, Davide Domini, Filippo Cavallari and contributors
+ * listed, for each module, in the respective subproject's build.gradle.kts file.
+ *
+ * This file is part of ScaRLib, and is distributed under the terms of the
+ * MIT License as described in the file LICENSE in the ScaRLib distribution's top directory.
+ */
+
 package it.unibo.scarlib.core.system
 
-import it.unibo.scarlib.core.model.{Action, Agent, AgentMode, Decay, DeepQLearner, DoubleDeepQLearner, Environment, EpidemicAction, EpidemicEnvironment, EpidemicExperience, EpidemicReplayBuffer, EpidemicState, Experience, LearningConfiguration, ReplayBuffer, State}
-import it.unibo.scarlib.core.neuralnetwork.{NeuralNetworkEncoding, NeuralNetworkEncodingEpidemic, NeuralNetworkSnapshot}
-import it.unibo.scarlib.core.util.{Logger, TorchLiveLogger}
-
+import it.unibo.scarlib.core.model._
 import scala.reflect.io.File
+import scala.util.Random
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-/** An agent that works in a [[EpidemicSystem]]
+/** An agent that works in a [[CTDESystem]]
  *
- * @param EpidemicagentId the unique id of the agent
+ * @param agentId the unique id of the agent
  * @param environment the environment in which the agents interact
  * @param actionSpace all the possible actions an agent can perform
- * @param datasetSize the size of the dataset that will contain the agent experience
- * @param agentMode whether the agent is in training or testing
- * @param learningConfiguration all the hyper-parameters specified by the user */
-
+ * @param dataset the dataset that will contain the agents experience
+ */
 class EpidemicAgent(
-                   EpidemicagentId: Int,
-                   environment: EpidemicEnvironment,
-                   actionSpace: Seq[EpidemicAction],
-                   datasetSize: Int,
-                   agentMode: AgentMode = AgentMode.Training,
-                   learningConfiguration: LearningConfiguration,
-                   logger: Logger = TorchLiveLogger
-                   )(implicit encoding: NeuralNetworkEncodingEpidemic[EpidemicState]) extends Agent{
+                 agentId: Int,
+                 environment: EpidemicEnvironment,
+                 actionSpace: Seq[EpidemicAction],
+                 dataset: ReplayBuffer[EpidemicState, EpidemicAction],
+               ) extends Agent {
+  private var policy: EpidemicState => EpidemicAction = _
 
-  private val dataset: EpidemicReplayBuffer[EpidemicState , EpidemicAction] = EpidemicReplayBuffer[EpidemicState, EpidemicAction](datasetSize)
-  private val epsilon: Decay[Double] = learningConfiguration.epsilon
-  private val learner = new DoubleDeepQLearner(dataset, actionSpace, learningConfiguration, logger)
-  private var testPolicy: EpidemicState => EpidemicAction = _
-
-
+  /** A single interaction of the agent with the environment */
   override def step(): Future[Unit] = {
-    val state = environment.observe(EpidemicagentId)
-    val policy = getPolicy
-    val action = policy(state)
+    val state = environment.observe(agentId)
+    if (!state.isEmpty()) {
+      val action = policy(state)
+      environment
+        .step(action, agentId)
+        .map { result =>
+          dataset.insert(Experience(state, action, result._1, result._2))
+        }
+        .map(_ => ())
 
-    environment
-      .step(action  , EpidemicagentId)
-      .map{ result =>
-          agentMode match{
-            case AgentMode.Training =>
-              dataset.insert(Experience(state , action , result._1 , result._2))
-              learner.improve()
-              epsilon.update()
-
-            case AgentMode.Testing =>
-          }
-      }
-  }
-
-  def snapshot(episode: Int): Unit = learner.snapshot(episode, EpidemicagentId)
-
-  /** Sets a new policy for testing */
-  def setTestPolicy(p: NeuralNetworkSnapshot): Unit =
-    testPolicy = DoubleDeepQLearner.policyFromNetworkSnapshot(p.path + s"-$EpidemicagentId", encoding, p.inputSize, p.hiddenSize, actionSpace)
-
-  /** Gets the current policy */
-  private def getPolicy: EpidemicState => EpidemicAction = {
-    agentMode match {
-      case AgentMode.Training => learner.behavioural
-      case AgentMode.Testing => testPolicy
+    } else {
+      environment.step(Random.shuffle(actionSpace).head, agentId)
+      Future {}
     }
   }
+
+  /** Sets a new policy */
+  def notifyNewPolicy(newPolicy: EpidemicState => EpidemicAction): Unit =
+    policy = newPolicy
 
 }

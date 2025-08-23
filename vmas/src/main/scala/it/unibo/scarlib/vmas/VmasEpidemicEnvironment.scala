@@ -3,7 +3,6 @@ package it.unibo.scarlib.vmas
 import it.unibo.scarlib.core.model.{Action, AutodiffDevice, Environment, EpidemicAction, EpidemicEnvironment, EpidemicState, RewardFunction, State}
 import it.unibo.scarlib.core.neuralnetwork.TorchSupport
 import it.unibo.scarlib.core.util.{AgentGlobalStore, Logger}
-import it.unibo.scarlib.vmas.MainEpidemic.dummyTensor
 import it.unibo.scarlib.vmas.WANDBLogger
 
 import scala.concurrent.{ExecutionContext, Future}

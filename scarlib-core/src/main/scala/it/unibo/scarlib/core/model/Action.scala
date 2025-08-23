@@ -15,25 +15,3 @@ trait Action
 trait EpidemicAction
 
 /** An empty action */
-case object NoAction extends EpidemicAction
-case object SocialDistancing extends EpidemicAction
-case object NoTravelRestriction extends EpidemicAction
-case object CompleteTravelLockdown extends EpidemicAction
-case object NormalHealthcare extends EpidemicAction
-case object EmergencyHealthcareMobilization extends EpidemicAction
-case object NoVaccination extends EpidemicAction
-case object TargetedVaccination extends EpidemicAction
-case object MassVaccination extends EpidemicAction
-
-case class EpidemicActionSpace() {
-  val actions: Seq[EpidemicAction] = Seq(
-    SocialDistancing,
-    NoTravelRestriction,
-    CompleteTravelLockdown,
-    NormalHealthcare,
-    EmergencyHealthcareMobilization,
-    NoVaccination,
-    TargetedVaccination,
-    MassVaccination
-  )
-}

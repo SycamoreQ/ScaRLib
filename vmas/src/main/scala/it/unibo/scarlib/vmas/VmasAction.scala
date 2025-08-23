@@ -31,26 +31,19 @@ object VMASAction{
     def toSeq: Seq[VMASAction] = Seq(North, South, East, West, NorthEast, NorthWest, SouthEast, SouthWest)
 }
 
-abstract class VMASEpidemicAction(tuple: (Float , Float)) extends EpidemicAction{
-  def toTensor(): py.Dynamic = {
-    val np = TorchSupport.arrayModule
-    val torch = TorchSupport.deepLearningLib()
-    val array=np.array(Seq(tuple).toPythonCopy)
-    torch.from_numpy(array).to(AutodiffDevice())
-  }
-}
+sealed trait VMASEpidemicAction extends Action
 
-case object NoAction extends EpidemicAction
-case object SocialDistancing extends EpidemicAction
-case object NoTravelRestriction extends EpidemicAction
-case object CompleteTravelLockdown extends EpidemicAction
-case object NormalHealthcare extends EpidemicAction
-case object EmergencyHealthcareMobilization extends EpidemicAction
-case object NoVaccination extends EpidemicAction
-case object TargetedVaccination extends EpidemicAction
-case object MassVaccination extends EpidemicAction
+case object NoAction extends VMASEpidemicAction
+case object SocialDistancing extends VMASEpidemicAction
+case object NoTravelRestriction extends VMASEpidemicAction
+case object CompleteTravelLockdown extends VMASEpidemicAction
+case object NormalHealthcare extends VMASEpidemicAction
+case object EmergencyHealthcareMobilization extends VMASEpidemicAction
+case object NoVaccination extends VMASEpidemicAction
+case object TargetedVaccination extends VMASEpidemicAction
+case object MassVaccination extends VMASEpidemicAction
 
 object RealEpidemicAction{
-  def toSeq: Seq[EpidemicAction] = Seq(NoAction , SocialDistancing , NoTravelRestriction , CompleteTravelLockdown , NormalHealthcare , EmergencyHealthcareMobilization , NoVaccination ,
+  def toSeq: Seq[VMASEpidemicAction] = Seq(NoAction , SocialDistancing , NoTravelRestriction , CompleteTravelLockdown , NormalHealthcare , EmergencyHealthcareMobilization , NoVaccination ,
     TargetedVaccination , MassVaccination)
 }
