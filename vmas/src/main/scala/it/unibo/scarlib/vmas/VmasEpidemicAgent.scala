@@ -1,8 +1,8 @@
 package it.unibo.scarlib.vmas
 
-import it.unibo.scarlib.core.system.{CTDEAgent, DTDEAgent, EpidemicAgent, EpidemicSystem}
-import it.unibo.scarlib.core.model.{Action, AgentMode, Decay, DoubleDeepQLearner, EpidemicAction, EpidemicReplayBuffer, EpidemicState, Experience, LearningConfiguration, ReplayBuffer, State}
-import it.unibo.scarlib.core.neuralnetwork.NeuralNetworkEncodingEpidemic
+import it.unibo.scarlib.core.system.{CTDEAgent, DTDEAgent}
+import it.unibo.scarlib.core.model.{Action, AgentMode, Decay, DeepQLearner, EpidemicAction, EpidemicState, Experience, LearningConfiguration, ReplayBuffer, State}
+import it.unibo.scarlib.core.neuralnetwork.{NeuralNetworkEncoding, NeuralNetworkEncodingEpidemic}
 import it.unibo.scarlib.core.util.{Logger, TorchLiveLogger}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -30,31 +30,29 @@ object VmasEpidemicAgent {
 
 class VmasEpidemicAgent (
                           environment: VmasEpidemicEnvironment,                  // VMAS-specific EpidemicEnvironment
-                          actionSpace: Seq[EpidemicAction],                      // list of possible EpidemicActions
-                          dataset: EpidemicReplayBuffer[EpidemicState, EpidemicAction], // replay buffer
+                          actionSpace: Seq[Action],                      // list of possible EpidemicActions
+                          dataset: ReplayBuffer[State, Action], // replay buffer
                           agentId: Int,                                          // agent id
                           agentMode: AgentMode = AgentMode.Training,             // default to training mode
                           learningConfiguration: LearningConfiguration,          // hyperparameters
                           logger: Logger = TorchLiveLogger             // logging utility
-                        )(implicit encoding: NeuralNetworkEncodingEpidemic[EpidemicState])
-  extends EpidemicAgent(
-    EpidemicagentId = agentId,
+                        )(implicit encoding: NeuralNetworkEncoding[State])
+  extends CTDEAgent(
+    agentId = agentId,
     environment = environment,
     actionSpace = actionSpace,
-    datasetSize = 100,                      // or dataset.length or a parameter
-    agentMode = agentMode,
-    learningConfiguration = learningConfiguration,
-    logger = logger)(encoding){
+    dataset = dataset)
+    {
 
   private val epsilon: Decay[Double] = learningConfiguration.epsilon
-  private val learner = new DoubleDeepQLearner(dataset , actionSpace , learningConfiguration , logger)
-  private var testPolicy: EpidemicState => EpidemicAction = _
+  private val learner = new DeepQLearner(dataset , actionSpace , learningConfiguration , logger)
+  private var testPolicy: State => Action = _
 
   final override def step() : Future[Unit] = {
     val state = environment.observe(agentId)
 
     if(!state.isEmpty()){
-      val action: EpidemicAction = if (Random.nextDouble() < epsilon) {
+      val action: Action = if (Random.nextDouble() < epsilon) {
         Random.shuffle(actionSpace).head
 
       } else {
@@ -80,7 +78,7 @@ class VmasEpidemicAgent (
     }
   }
 
-  private def getPolicy: EpidemicState => EpidemicAction = {
+  private def getPolicy: State => Action = {
     agentMode match {
       case AgentMode.Training => learner.behavioural
       case AgentMode.Testing => testPolicy

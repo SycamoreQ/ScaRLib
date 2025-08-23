@@ -115,7 +115,7 @@ class VmasEnvironment(rewardFunction: RewardFunction,
     override def observe(agentId: Int): State = {
         lastObservation(agentId) match {
             case Some(state) => state
-            case None => new VMASState(TorchSupport.deepLearningLib().from_numpy(TorchSupport.arrayModule.zeros(VMASState.encoding.elements())))
+            case None => new VMASEpidemicState(TorchSupport.deepLearningLib().from_numpy(TorchSupport.arrayModule.zeros(VMASEpidemicState.encoding.elements())))
         }
     }
 

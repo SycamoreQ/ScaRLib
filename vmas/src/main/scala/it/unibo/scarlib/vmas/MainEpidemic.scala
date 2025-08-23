@@ -151,7 +151,6 @@ object MainEpidemic extends App {
   // Create scenario (similar to Main.scala)
   val scenario = py.module("EpidemicEnv").Scenario(rfLambda, obsLambda)
 
-  // Environment settings (similar to Main.scala envSettings)
   private val envSettings = VmasSettings(
     scenario = scenario,
     nEnv = 1,
@@ -163,7 +162,7 @@ object MainEpidemic extends App {
   )
 
   // Environment configuration (similar to Main.scala configuration)
-  implicit val configuration: EpidemicEnvironment => Unit = (e: EpidemicEnvironment) => {
+  implicit val configuration: Environment => Unit = (e: Environment) => {
     val env = e.asInstanceOf[VmasEpidemicEnvironment]
     env.setSettings(envSettings)
     env.setLogger(WANDBLogger)
@@ -171,7 +170,6 @@ object MainEpidemic extends App {
     env.initEnv()
   }
 
-  // Network save path
   private val where = s"./epidemic_networks"
 
   val epidemicSystem = EpidemicLearningSystem {
@@ -196,12 +194,12 @@ object MainEpidemic extends App {
         snapshotPath = where
       )
     }
+
     environment {
       "it.unibo.scarlib.vmas.VmasEpidemicEnvironment"
     }
   }(ExecutionContext.global, VMASEpidemicState.encoding)
 
-  // Start learning (similar to Main.scala)
   println("Starting epidemic simulation training...")
   epidemicSystem.learn(envSettings.nEpochs, envSettings.nSteps)
 }

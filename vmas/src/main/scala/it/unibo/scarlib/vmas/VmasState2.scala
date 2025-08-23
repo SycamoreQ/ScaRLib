@@ -116,7 +116,7 @@ case class EpidemicData(
 class VMASEpidemicState(
                          val tensor: py.Dynamic,
                          val epidemicData: Option[EpidemicData] = None
-                       ) extends EpidemicState {
+                       ) extends State {
 
   override def isEmpty(): Boolean = false
 

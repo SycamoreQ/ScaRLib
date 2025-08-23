@@ -36,22 +36,4 @@ abstract class Environment(rewardFunction: RewardFunction, actionSpace: Seq[Acti
 
 }
 
-abstract class EpidemicEnvironment(rewardFunction: RewardFunction , actionSpace: Seq[EpidemicAction]) {
-  /** A single interaction with an agent
-   *
-   * @param action the action performed by the agent
-   * @param agentId the agent unique id
-   * @return a [[Future]] that contains the reward of the action and the next state
-   */
-  def step(action: EpidemicAction, agentId: Int): Future[(Double, EpidemicState)]
-
-  /** Gets the current state of the environment */
-  def observe(agentId: Int): EpidemicState
-
-  /** Resets the environment to the initial state */
-  def reset(): Unit
-
-  def log(): Unit
-}
-
 

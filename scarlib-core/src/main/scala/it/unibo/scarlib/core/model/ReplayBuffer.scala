@@ -23,7 +23,6 @@ import collection.mutable.ArrayDeque
  */
 case class Experience[S, A](actualState: S, action: A, reward: Double, nextState: S)
 
-case class EpidemicExperience[EpidemicState , EpidemicAction](actualState: EpidemicState , action: EpidemicAction , reward: Double , nextState: EpidemicState)
 
 /** The container of agents experience */
 trait ReplayBuffer[S, A]{
@@ -39,25 +38,6 @@ trait ReplayBuffer[S, A]{
 
   /** Gets all the experience stored by the agents */
   def getAll(): Seq[Experience[S, A]]
-
-  /** Gets the buffer size */
-  def size(): Int
-
-}
-
-trait EpidemicReplayBuffer[EpidemicState, EpidemicAction]{
-
-  /** Inserts new experience */
-  def insert(experience: Experience[EpidemicState, EpidemicAction]): Unit
-
-  /** Empty the buffer */
-  def reset(): Unit
-
-  /** Gets a sub-sample of the experience stored by the agents */
-  def subsample(batchSize: Int): Seq[Experience[EpidemicState, EpidemicAction]]
-
-  /** Gets all the experience stored by the agents */
-  def getAll(): Seq[Experience[EpidemicState, EpidemicAction]]
 
   /** Gets the buffer size */
   def size(): Int
@@ -88,26 +68,3 @@ object ReplayBuffer{
 
 }
 
-object EpidemicReplayBuffer{
-  def apply[EpidemicState, EpidemicAction](size: Int): EpidemicReplayBuffer[EpidemicState, EpidemicAction] = {
-    new BoundedQueue[EpidemicState, EpidemicAction](size, 42)
-  }
-
-  private class BoundedQueue[EpidemicState, EpidemicAction](bufferSize: Int, seed: Int) extends EpidemicReplayBuffer[EpidemicState, EpidemicAction]{
-
-    private var queue: ArrayDeque[Experience[EpidemicState, EpidemicAction]] = ArrayDeque.empty
-
-    override def reset(): Unit = queue = ArrayDeque.empty[Experience[EpidemicState, EpidemicAction]]
-
-    override def insert(experience: Experience[EpidemicState, EpidemicAction]): Unit =
-      queue = (queue :+ experience).takeRight(bufferSize)
-
-    override def subsample(batchSize: Int): Seq[Experience[EpidemicState, EpidemicAction]] =
-      new Random(seed).shuffle(queue).take(batchSize).toSeq
-
-    override def getAll(): Seq[Experience[EpidemicState, EpidemicAction]] = queue.toSeq
-
-    override def size(): Int = queue.size
-  }
-
-}

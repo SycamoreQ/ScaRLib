@@ -26,20 +26,3 @@ trait Learner {
   def loadSnapshot(path: String): Unit
 }
 
-
-trait EpidemicLearner {
-
-  /** Gets the optimal policy */
-  val optimal: EpidemicState => EpidemicAction
-
-  /** Gets the behavioural policy */
-  val behavioural: EpidemicState => EpidemicAction
-
-  /** Improves the policy following the learning algorithm */
-  def improve(): Unit
-
-  /** Takes a snapshot of the current policy */
-  def snapshot(episode: Int, agentId: Int): Unit
-
-  def loadSnapshot(path: String): Unit
-}

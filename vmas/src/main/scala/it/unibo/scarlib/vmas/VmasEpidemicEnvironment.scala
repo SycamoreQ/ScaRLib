@@ -1,6 +1,6 @@
 package it.unibo.scarlib.vmas
 
-import it.unibo.scarlib.core.model.{Action, AutodiffDevice, Environment, EpidemicAction, EpidemicEnvironment, EpidemicState, RewardFunction, State}
+import it.unibo.scarlib.core.model.{Action, AutodiffDevice, Environment, EpidemicAction, EpidemicState, RewardFunction, State}
 import it.unibo.scarlib.core.neuralnetwork.TorchSupport
 import it.unibo.scarlib.core.util.{AgentGlobalStore, Logger}
 import it.unibo.scarlib.vmas.WANDBLogger
@@ -16,8 +16,8 @@ import java.util.concurrent.Executors
 import scala.collection.mutable
 
 class VmasEpidemicEnvironment(rewardFunction: RewardFunction,
-                              actionSpace: Seq[EpidemicAction])
-  extends EpidemicEnvironment (rewardFunction , actionSpace){
+                              actionSpace: Seq[Action])
+  extends Environment (rewardFunction , actionSpace){
 
   private var settings : VmasSettings = _
   private var logger: Logger = _
@@ -50,13 +50,13 @@ class VmasEpidemicEnvironment(rewardFunction: RewardFunction,
   implicit val ec: ExecutionContext = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
 
   //TODO Handling multiple environments
-  private var lastObservation: List[Option[EpidemicState]] = List.empty
+  private var lastObservation: List[Option[State]] = List.empty
   private var steps = 0
   private var epochs = 0
   private val rendererExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(10));
 
   private var actions: Seq[py.Dynamic] = Seq[py.Dynamic]()
-  private var promises = Seq[scala.concurrent.Promise[(Double, EpidemicState)]]()
+  private var promises = Seq[scala.concurrent.Promise[(Double, State)]]()
   private var frames: py.Dynamic = py.Dynamic.global.list(Seq[py.Dynamic]().toPythonCopy)
   private val PIL = py.module("PIL")
 
@@ -66,13 +66,13 @@ class VmasEpidemicEnvironment(rewardFunction: RewardFunction,
    * @param agentId the agent unique id
    * @return a [[Future]] that contains the reward of the action and the next state
    */
-  override def step(action: EpidemicAction, agentId: Int): Future[(Double, EpidemicState)] = {
+  override def step(action: Action, agentId: Int): Future[(Double, State)] = {
     //Check if agent is the last one
     //val agentPos = agents(agentId).pos //Tensor of shape [n_env, 2] - NOT USED
     actions = actions :+ action.asInstanceOf[VMASAction].toTensor()
     val nAgents: Int = env.n_agents.as[Int]
     val isLast = nAgents - 1 == agentId
-    val promise = scala.concurrent.Promise[(Double, EpidemicState)]()
+    val promise = scala.concurrent.Promise[(Double, State)]()
     val future = promise.future
     promises = promises :+ promise
     if (isLast) {
@@ -101,7 +101,7 @@ class VmasEpidemicEnvironment(rewardFunction: RewardFunction,
           env = makeEnv()
         }
       }
-      promises = Seq[scala.concurrent.Promise[(Double, EpidemicState)]]()
+      promises = Seq[scala.concurrent.Promise[(Double, State)]]()
     }
     return future
   }
@@ -111,7 +111,7 @@ class VmasEpidemicEnvironment(rewardFunction: RewardFunction,
   ))
 
   /** Gets the current state of the environment */
-  override def observe(agentId: Int): EpidemicState = {
+  override def observe(agentId: Int): State = {
     lastObservation(agentId) match {
       case Some(state) => state
       case None => new VMASEpidemicState(TorchSupport.deepLearningLib().from_numpy(TorchSupport.arrayModule.zeros(VMASEpidemicState.encoding.elements())))
