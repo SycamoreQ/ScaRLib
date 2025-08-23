@@ -2,7 +2,6 @@ package it.unibo.scarlib.vmas
 
 import it.unibo.scarlib.core.model._
 import it.unibo.scarlib.core.neuralnetwork.DQNAbstractFactory
-import it.unibo.scarlib.dsl.DSLEpidemic.EpidemicLearningSystem
 import it.unibo.scarlib.dsl.DSL._
 import it.unibo.scarlib.vmas.RewardFunctionEpidemic._
 import me.shadaj.scalapy.interpreter.CPythonInterpreter
@@ -172,9 +171,9 @@ object MainEpidemic extends App {
 
   private val where = s"./epidemic_networks"
 
-  val epidemicSystem = EpidemicLearningSystem {
+  val epidemicSystem = CTDELearningSystem {
     rewardFunction {
-      EpidemicRewardFunction()
+      EmptyRewardFunctionEpidemic()
     }
 
     actionSpace {
@@ -204,17 +203,7 @@ object MainEpidemic extends App {
   epidemicSystem.learn(envSettings.nEpochs, envSettings.nSteps)
 }
 
-// Fixed reward function implementation
-case class EpidemicRewardFunction() extends RewardFunction {
-  override def compute(currentState: State, action: Action, newState: State): Double = {
-    (currentState, action, newState) match {
-      case (cs: EpidemicState, a: EpidemicAction, ns: EpidemicState) =>
-        // Use epidemic-specific reward calculation
-        val infectionPenalty = -0.01 * ns.infected
-        val hospitalUtilization = if (ns.getHospitalUtilization > 0.8) -0.1 else 0.0
-        val vaccinationReward = 0.001 * ns.vaccinatedPopulation
-        infectionPenalty + hospitalUtilization + vaccinationReward
-      case _ => 0.0
-    }
-  }
+
+case class EmptyRewardFunctionEpidemic() extends RewardFunction{
+  override def compute(currentState: State, action: Action, newState: State): Double = 0.0
 }

@@ -1,15 +1,10 @@
 package it.unibo.scarlib.vmas
 
-import it.unibo.scarlib.core.model.{AutodiffDevice, EpidemicState, State}
-import it.unibo.scarlib.core.neuralnetwork.{NeuralNetworkEncoding, NeuralNetworkEncodingEpidemic}
-import it.unibo.scarlib.core.spark.Loader
-import it.unibo.scarlib.vmas
+import it.unibo.scarlib.core.model.{AutodiffDevice, State}
+import it.unibo.scarlib.core.neuralnetwork.NeuralNetworkEncoding
 import me.shadaj.scalapy.py
 import me.shadaj.scalapy.readwrite.Reader.doubleReader
-import org.apache.spark.sql.{DataFrame, Row, SparkSession, types}
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
-import spark.Loader._
+
 import scala.math._
 
 
@@ -163,16 +158,16 @@ object VMASEpidemicState {
   private var stateDescriptor: Option[VMASEpidemicStateDescriptor] = None
   def setDescriptor(descriptor: VMASEpidemicStateDescriptor): Unit = stateDescriptor = Some(descriptor)
 
-  implicit val encoding: NeuralNetworkEncodingEpidemic[EpidemicState] =
-    new NeuralNetworkEncodingEpidemic[EpidemicState] {
+  implicit val encoding: NeuralNetworkEncoding[State] =
+    new NeuralNetworkEncoding[State] {
 
       override def elements(): Int = stateDescriptor match {
         case Some(descriptor) => descriptor.getTensorSize
         case None => 15 // default
       }
 
-      override def toSeq(element: EpidemicState): Seq[Double] = {
-        element.asInstanceOf[VMASEpidemicState].tensor.flatten().tolist().as[Seq[Double]]
+      override def toSeq(element: State): Seq[Double] = {
+        element.asInstanceOf[VMASEpidemicState].tensor.flatten().tolist().as(Seq[Double])
       }
     }
 }

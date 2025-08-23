@@ -1,8 +1,7 @@
 package it.unibo.scarlib.vmas
 
-import it.unibo.scarlib.core.model.{AutodiffDevice, EpidemicState, State}
-import it.unibo.scarlib.core.neuralnetwork.{NeuralNetworkEncoding, NeuralNetworkEncodingEpidemic}
-import it.unibo.scarlib.core.spark.Loader
+import it.unibo.scarlib.core.model.{AutodiffDevice, State}
+import it.unibo.scarlib.core.neuralnetwork.NeuralNetworkEncoding
 import it.unibo.scarlib.vmas
 import me.shadaj.scalapy.py
 import me.shadaj.scalapy.readwrite.Reader.doubleReader
@@ -27,7 +26,7 @@ object VMASState{
         }
 
         /** Converts the state into a format usable by the neural network */
-        override def toSeq(element: State): Seq[Double] = element.asInstanceOf[vmas.VMASState].tensor.flatten().tolist().as[Seq[Double]]
+        override def toSeq(element: State): Seq[Double] = element.asInstanceOf[vmas.VMASState].tensor.flatten().tolist().as(Seq[Double])
 
     }
 

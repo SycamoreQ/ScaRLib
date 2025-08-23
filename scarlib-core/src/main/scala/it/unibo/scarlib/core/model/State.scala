@@ -11,7 +11,7 @@
 
 package it.unibo.scarlib.core.model
 
-import it.unibo.scarlib.core.neuralnetwork.{NeuralNetworkEncoding, NeuralNetworkEncodingEpidemic}
+import it.unibo.scarlib.core.neuralnetwork.NeuralNetworkEncoding
 
 import scala.math._
 import me.shadaj.scalapy.py
@@ -22,11 +22,6 @@ trait State {
   def isEmpty(): Boolean
 
 }
-
-trait EpidemicState {
-  def isEmpty():Boolean
-}
-
 
 /** An empty state */
 class EmptyState extends State{
@@ -41,18 +36,4 @@ class EmptyState extends State{
   }
 }
 
-
-class EmptyEpidemicState extends EpidemicState{
-  override def isEmpty(): Boolean = true
-
-  object EmptyState {
-    implicit val encoding : NeuralNetworkEncodingEpidemic[EpidemicState] = new NeuralNetworkEncodingEpidemic[EpidemicState] {
-      /** The number of element in the encoding */
-      override def elements(): Int = 0
-
-      /** The encoded state */
-      override def toSeq(element: EpidemicState): Seq[Double] = Seq.empty[Double]
-    }
-  }
-}
 

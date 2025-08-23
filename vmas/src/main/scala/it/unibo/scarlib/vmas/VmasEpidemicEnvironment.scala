@@ -1,6 +1,6 @@
 package it.unibo.scarlib.vmas
 
-import it.unibo.scarlib.core.model.{Action, AutodiffDevice, Environment, EpidemicAction, EpidemicState, RewardFunction, State}
+import it.unibo.scarlib.core.model.{Action, AutodiffDevice, Environment, State, RewardFunction}
 import it.unibo.scarlib.core.neuralnetwork.TorchSupport
 import it.unibo.scarlib.core.util.{AgentGlobalStore, Logger}
 import it.unibo.scarlib.vmas.WANDBLogger

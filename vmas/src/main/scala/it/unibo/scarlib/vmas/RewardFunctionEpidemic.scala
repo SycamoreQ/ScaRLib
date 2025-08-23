@@ -1,7 +1,8 @@
 package it.unibo.scarlib.vmas
 
-import it.unibo.scarlib.core.model.{EpidemicAction, EpidemicState, RewardFunction}
-import it.unibo.scarlib.vmas.RewardFunctionDSL.{CurrentState, NewState, RewardFunctionStepParam}
+import it.unibo.scarlib.core.model._
+import it.unibo.scarlib.core.model.{Action, RewardFunction, State}
+import it.unibo.scarlib.vmas.RewardFunctionDSL.{CurrentState, NewState, RewardFunctionStep, RewardFunctionStepParam, rf}
 import me.shadaj.scalapy.interpreter.CPythonInterpreter
 import me.shadaj.scalapy.py
 
@@ -15,12 +16,12 @@ object RewardFunctionEpidemic {
   private var rf: Option[RewardFunction] = None
 
   abstract class RewardFunctionStep(param: RewardFunctionStepParam) {
-    def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any
+    def compute()(implicit currentState: State, action: Action, newState: State): Any
   }
 
   def rewardFunctionStep(init: => RewardFunctionStep): Unit = {
     rf = Option(new RewardFunction {
-      override def compute(currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Double = init.compute()(currentState.asInstanceOf[EpidemicState], action.asInstanceOf[EpidemicAction], newState.asInstanceOf[EpidemicState]).asInstanceOf[Double]
+      override def compute(currentState: State, action: Action, newState: State): Double = init.compute()(currentState, action, newState).asInstanceOf[Double]
     })
   }
 
@@ -55,7 +56,7 @@ object RewardFunctionEpidemic {
 
 
   case class InfectionPenalty(x: (py.Dynamic, String) , param : RewardFunctionStepParam) extends RewardFunctionStep(param) {
-    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): py.Dynamic = {
+    override def compute()(implicit currentState: State, action: Action, newState: State): py.Dynamic = {
 
       val state = param match {
         case CurrentState => currentState
@@ -81,7 +82,7 @@ object RewardFunctionEpidemic {
   }
 
   case class hospitalUtilization(x: (py.Dynamic, String) , param : RewardFunctionStepParam) extends RewardFunctionStep(param) {
-    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): py.Dynamic = {
+    override def compute()(implicit currentState: State, action: Action, newState: State): py.Dynamic = {
 
       val state = param match {
         case CurrentState => currentState
@@ -118,7 +119,7 @@ object RewardFunctionEpidemic {
   }
 
   case class VaccinationDrive(x: (py.Dynamic, String) , param : RewardFunctionStepParam) extends RewardFunctionStep(param) {
-    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): py.Dynamic = {
+    override def compute()(implicit currentState: State, action: Action, newState: State): py.Dynamic = {
 
       val state = param match {
         case CurrentState => currentState
@@ -158,7 +159,7 @@ object RewardFunctionEpidemic {
   }
 
   case class airportFunc(x: (py.Dynamic, String) , diseaseCountry: String , targetCountry : Seq[String] ,  param : RewardFunctionStepParam) extends RewardFunctionStep(param) {
-    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): py.Dynamic = {
+    override def compute()(implicit currentState: State, action: Action, newState: State): py.Dynamic = {
 
       val state = param match {
         case CurrentState => currentState
@@ -184,32 +185,102 @@ object RewardFunctionEpidemic {
     }
   }
 
+  case class AddRoot(x: (py.Dynamic, String), param: RewardFunctionStepParam) extends RewardFunctionStep(param) {
+    override def compute()(implicit currentState: State, action: Action, newState: State): Any = {
+      val state = param match {
+        case CurrentState => currentState
+        case NewState => newState
+      }
+      state match {
+        case state: VMASState =>
+          state.tensor + x._1
+        case _ =>
+          py.eval("0.0")
+      }
+    }
+
+    override def toString: String = {
+      val state = param match {
+        case CurrentState =>  "agent.currentState"
+        case NewState => "agent.newState"
+      }
+      s"($state + ${x._2})"
+    }
+  }
+
+  case class Add(x: (py.Dynamic, String), y: RewardFunctionStep) extends RewardFunctionStep(CurrentState) {
+    override def compute()(implicit currentState: State, action: Action, newState: State): Any = {
+      x._1 + y.compute()(currentState, action, newState).asInstanceOf[py.Dynamic]
+    }
+
+    override def toString: String = s"(${x._2} + $y)"
+
+  }
+
+  case class Sub(x: py.Dynamic, param: RewardFunctionStepParam) extends RewardFunctionStep(param) {
+    override def compute()(implicit currentState: State, action: Action, newState: State): Any = {
+      val state = param match {
+        case CurrentState => currentState
+        case NewState => newState
+      }
+      state match {
+        case state: VMASState =>
+          state.tensor - x
+        case _ =>
+          py.eval("0.0")
+      }
+    }
+  }
+
+  case class Mul(x: py.Dynamic, param: RewardFunctionStepParam) extends RewardFunctionStep(param) {
+    override def compute()(implicit currentState: State, action: Action, newState: State): Any = {
+      val state = param match {
+        case CurrentState => currentState
+        case NewState => newState
+      }
+      state match {
+        case state: VMASState =>
+          state.tensor * x
+        case _ =>
+          py.eval("0.0")
+      }
+    }
+  }
+
+  case class Div(x: py.Dynamic, param: RewardFunctionStepParam) extends RewardFunctionStep(param) {
+    override def compute()(implicit currentState: State, action: Action, newState: State): Any = {
+      val state = param match {
+        case CurrentState => currentState
+        case NewState => newState
+      }
+      state match {
+        case state: VMASState =>
+          state.tensor / x
+        case _ =>
+          py.eval("0.0")
+      }
+    }
+  }
+
   case class AddTwoStep(x: RewardFunctionStep, y: RewardFunctionStep) extends RewardFunctionStep(CurrentState) {
-    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any =
+    override def compute()(implicit currentState: State, action: Action, newState: State): Any =
       (x.compute()(currentState, action, newState)).asInstanceOf[py.Dynamic] + (y.compute()(currentState, action, newState)).asInstanceOf[py.Dynamic]
 
     override def toString: String = s"($x + $y)"
   }
 
-  case class Add(x: (py.Dynamic, String), y: RewardFunctionStep) extends RewardFunctionStep(CurrentState) {
-    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
-      x._1 + y.compute()(currentState, action, newState).asInstanceOf[py.Dynamic]
-    }
-
-    override def toString: String = s"(${x._2} + $y)"
-  }
-
   case class Map(x: RewardFunctionStep, lambda: (py.Dynamic, String)) extends RewardFunctionStep(CurrentState) {
+
     override def toString: String = s"(${lambda._2})($x)"
 
-    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
+    override def compute()(implicit currentState: State, action: Action, newState: State): Any = {
       val returnValue = lambda._1(x.compute()(currentState, action, newState).asInstanceOf[py.Dynamic])
       returnValue
     }
   }
 
   case class Reduce(x: RewardFunctionStep, lambda: (py.Dynamic, String)) extends RewardFunctionStep(CurrentState) {
-    override def compute()(implicit currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Any = {
+    override def compute()(implicit currentState: State, action: Action, newState: State): Any = {
       val returnValue = lambda._1(x.compute()(currentState, action, newState).asInstanceOf[py.Dynamic]).asInstanceOf[Double]
       returnValue
     }
@@ -217,13 +288,9 @@ object RewardFunctionEpidemic {
     override def toString: String = s"(${lambda._2})($x)"
   }
 
-  // Implicit classes for operator overloading
-  implicit class AddTwoStepOps(x: RewardFunctionStep) {
-    def ++(y: RewardFunctionStep): RewardFunctionStep = AddTwoStep(x, y)
-  }
-
   implicit class AddOps(x: RewardFunctionStep) {
     def +(y: (py.Dynamic, String)): RewardFunctionStep = Add(y, x)
+
   }
 
   implicit class MapOps(x: RewardFunctionStep) {
@@ -232,5 +299,9 @@ object RewardFunctionEpidemic {
 
   implicit class ReduceOps(x: RewardFunctionStep) {
     def >>(lambda: (py.Dynamic, String)): RewardFunctionStep = Reduce(x, lambda)
+  }
+
+  implicit class AddTwoStepOps(x: RewardFunctionStep) {
+    def ++(y: RewardFunctionStep): RewardFunctionStep = AddTwoStep(x, y)
   }
 }

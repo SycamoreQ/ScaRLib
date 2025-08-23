@@ -10,12 +10,11 @@
 package it.unibo.scarlib.core.model
 
 import it.unibo.scarlib.core.model._
-import it.unibo.scarlib.core.model.EpidemicState
 
 /** The function that evaluates the action performed by an agent in a certain state */
 trait RewardFunction {
 
-  def compute(currentState: EpidemicState, action: EpidemicAction, newState: EpidemicState): Double
+  def compute(currentState: State, action: Action, newState: State): Double
 }
 
 
