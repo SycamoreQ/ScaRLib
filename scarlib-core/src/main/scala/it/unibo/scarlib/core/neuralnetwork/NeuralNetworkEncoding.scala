@@ -8,6 +8,7 @@
  */
 
 package it.unibo.scarlib.core.neuralnetwork
+import me.shadaj.scalapy.readwrite.Reader.doubleReader
 
 import it.unibo.scarlib.core.model.State
 

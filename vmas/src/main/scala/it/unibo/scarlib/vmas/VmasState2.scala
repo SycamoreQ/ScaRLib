@@ -2,6 +2,7 @@ package it.unibo.scarlib.vmas
 
 import it.unibo.scarlib.core.model.{AutodiffDevice, State}
 import it.unibo.scarlib.core.neuralnetwork.NeuralNetworkEncoding
+import it.unibo.scarlib.vmas.RewardFunctionEpidemic.Tensor
 import me.shadaj.scalapy.py
 import me.shadaj.scalapy.readwrite.Reader.doubleReader
 
@@ -152,25 +153,25 @@ object VMASEpidemicState {
   def apply(array: py.Dynamic): VMASEpidemicState =
     new VMASEpidemicState(py.module("torch").tensor(array).to(AutodiffDevice()))
 
-  def apply(array: py.Dynamic, data: EpidemicData): VMASEpidemicState =
-    new VMASEpidemicState(py.module("torch").tensor(array).to(AutodiffDevice()), Some(data))
-
   private var stateDescriptor: Option[VMASEpidemicStateDescriptor] = None
+
   def setDescriptor(descriptor: VMASEpidemicStateDescriptor): Unit = stateDescriptor = Some(descriptor)
 
-  implicit val encoding: NeuralNetworkEncoding[State] =
-    new NeuralNetworkEncoding[State] {
+  implicit val encoding: NeuralNetworkEncoding[State] = new NeuralNetworkEncoding[State] {
 
-      override def elements(): Int = stateDescriptor match {
-        case Some(descriptor) => descriptor.getTensorSize
-        case None => 15 // default
-      }
-
-      override def toSeq(element: State): Seq[Double] = {
-        element.asInstanceOf[VMASEpidemicState].tensor.flatten().tolist().as(Seq[Double])
-      }
+    override def elements(): Int = stateDescriptor match {
+      case Some(descriptor) => descriptor.getTensorSize
+      case None => throw new Exception("State descriptor not set")
     }
+
+    override def toSeq(element: State): Seq[Double] = {
+      val pythonList = element.asInstanceOf[VMASEpidemicState].tensor.flatten().tolist
+      val length = pythonList.__len__().as[Int]
+      (0 until length).map(i => pythonList.__getitem__(i).as[Double]).toSeq
+    }
+  }
 }
+
 
 object EpidemicDataEncoder {
 
@@ -196,11 +197,6 @@ object EpidemicDataEncoder {
       data.ageDistribution.values.sum.toDouble / normalizationFactor
     )
 
-    py.module("torch").tensor(features.toArray)
-  }
-
-  def createStateFromData(data: EpidemicData): VMASEpidemicState = {
-    val tensor = encodeToTensor(data)
-    VMASEpidemicState(tensor, data)
+    features.asInstanceOf[py.Dynamic]
   }
 }

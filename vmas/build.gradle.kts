@@ -25,7 +25,10 @@ dependencies {
     implementation ("org.apache.spark:spark-streaming_2.12:3.5.0")
     // Spark Streaming Kafka integration (if using Kafka)
     implementation ("org.apache.spark:spark-streaming-kafka-0-10_2.12:3.5.0")
+    implementation("me.shadaj:scalapy-core_2.13:0.5.3")
 }
+
+
 
 tasks.test {
     useJUnitPlatform()

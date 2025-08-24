@@ -1,7 +1,6 @@
 package it.unibo.scarlib.vmas
 
 import scala.math._
-import it.unibo.scarlib.core.model.EpidemicState
 import me.shadaj.scalapy.py
 
 case class VmasStateDescriptor(hasPosition: Boolean = true, hasVelocity: Boolean = true, positionDimensions: Int = 2,

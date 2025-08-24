@@ -3,10 +3,12 @@ package it.unibo.scarlib.vmas
 import it.unibo.scarlib.core.model._
 import it.unibo.scarlib.core.neuralnetwork.DQNAbstractFactory
 import it.unibo.scarlib.dsl.DSL._
-import it.unibo.scarlib.vmas.RewardFunctionEpidemic._
+import it.unibo.scarlib.vmas.RewardFunctionEpidemic.{CurrentState, InfectionPenalty, Lambda, NewState, RewardFunctionStep, Tensor, VaccinationDrive, airportFunc, hospitalUtilization, rewardFunctionStep}
 import me.shadaj.scalapy.interpreter.CPythonInterpreter
 import me.shadaj.scalapy.py
 import me.shadaj.scalapy.py.PyQuote
+import it.unibo.scarlib.vmas.VMASEpidemicState.encoding
+
 import it.unibo.scarlib.vmas._
 
 import scala.concurrent.ExecutionContext
@@ -27,12 +29,11 @@ object MainEpidemic extends App {
   val diseaseOrigin = "China"
   val targetCountries = Seq("Italy", "USA", "Germany", "France")
 
-  // Create epidemic reward function using your DSL (similar to Main.scala test)
   val epidemicRewardFunction =
-    InfectionPenalty(-0.5, CurrentState) ++
-      hospitalUtilization(-0.3, CurrentState) ++
-      VaccinationDrive(0.8, NewState) ++
-      airportFunc(-0.2, diseaseOrigin, targetCountries, CurrentState) -->
+    InfectionPenalty((Tensor(0.5)), CurrentState) ++
+      hospitalUtilization(Tensor(-0.2), CurrentState) ++
+      VaccinationDrive(Tensor(-0.8), NewState) ++
+      airportFunc(Tensor(0.5) , diseaseOrigin, targetCountries, CurrentState) -->
       Lambda("x: x.sum()") >>
       Lambda("x: x.clamp(-100.0, 100.0)")
 
@@ -189,7 +190,7 @@ object MainEpidemic extends App {
     }
     learningConfiguration {
       LearningConfiguration(
-        dqnFactory = new EpidemicNNFactory(1000 , VMASAction.toSeq),
+        dqnFactory = new EpidemicNNFactory(1000 , RealEpidemicAction.toSeq),
         snapshotPath = where
       )
     }

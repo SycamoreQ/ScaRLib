@@ -52,9 +52,6 @@ object RewardFunctionEpidemic {
 
   implicit def lambdaToPyDynamic(x: Lambda): (py.Dynamic, String) = (x.x, x.stringed)
 
-  def asTensor(values: Seq[Double]): py.Dynamic = py.module("torch").tensor(py.Dynamic)
-
-
   case class InfectionPenalty(x: (py.Dynamic, String) , param : RewardFunctionStepParam) extends RewardFunctionStep(param) {
     override def compute()(implicit currentState: State, action: Action, newState: State): py.Dynamic = {
 
@@ -72,7 +69,7 @@ object RewardFunctionEpidemic {
       }
     }
 
-  override def toString: String = {
+    override def toString: String = {
       val state = param match {
         case CurrentState => "agent.currentstate"
         case NewState => "agent.newstate"
@@ -129,9 +126,8 @@ object RewardFunctionEpidemic {
       state match {
         case s: VMASEpidemicState =>
           val vaccinated = s.getVaccinationRate
-          val infected = s.epidemicData.map(_.infected)
-          val incomingTravellers = s.epidemicData.map(_.incomingTravelers)
-          val outgoingTravellers = s.epidemicData.map(_.outgoingTravelers)
+          val infected = s.epidemicData.map(_.infected).sum
+          val incomingTravellers = s.epidemicData.map(_.incomingTravelers.values.sum).getOrElse(0)
 
           if (vaccinated > infected) {
             s.tensor - x._1 * vaccinated * 100
@@ -168,12 +164,21 @@ object RewardFunctionEpidemic {
 
       state match {
         case s: VMASEpidemicState =>
-          val vaccinated = s.epidemicData.map(_.getMostConnectedCountries(diseaseCountry , targetCountry))
-          vaccinated match {
-            case vaccinated.headOption => s.tensor * s.getInfectionRate * 100
+          // Get Option[Seq[(String, Int)]]
+          val maybeConnected: Option[Seq[(String, Int)]] = s.epidemicData.map(_.getMostConnectedCountries(diseaseCountry, targetCountry))
+          // Get Option[(String, Int)] for the most connected country, or None
+          val mostConnected: Option[(String, Int)] = maybeConnected.flatMap(_.headOption)
+          mostConnected match {
+            case Some((country, volume)) =>
+              // Apply a heavier penalty for the most connected country
+              s.tensor - x._1 * s.getInfectionRate * 100
+            case None =>
+              // No penalty if there are no connections
+              s.tensor
           }
         case _ => py.eval("0.0")
       }
+
     }
 
     override def toString: String = {

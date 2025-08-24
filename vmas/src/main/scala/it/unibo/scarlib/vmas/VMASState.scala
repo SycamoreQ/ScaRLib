@@ -4,7 +4,7 @@ import it.unibo.scarlib.core.model.{AutodiffDevice, State}
 import it.unibo.scarlib.core.neuralnetwork.NeuralNetworkEncoding
 import it.unibo.scarlib.vmas
 import me.shadaj.scalapy.py
-import me.shadaj.scalapy.readwrite.Reader.doubleReader
+import me.shadaj.scalapy.readwrite.Reader.{doubleReader, _}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession, types}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
@@ -26,7 +26,11 @@ object VMASState{
         }
 
         /** Converts the state into a format usable by the neural network */
-        override def toSeq(element: State): Seq[Double] = element.asInstanceOf[vmas.VMASState].tensor.flatten().tolist().as(Seq[Double])
+        override def toSeq(element: State): Seq[Double] = {
+          val pythonList = element.asInstanceOf[VMASState].tensor.flatten().tolist
+          val length = pythonList.__len__().as[Int]
+          (0 until length).map(i => pythonList.__getitem__(i).as[Double]).toSeq
+        }
 
     }
 

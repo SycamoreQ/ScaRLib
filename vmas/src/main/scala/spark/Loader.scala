@@ -1,6 +1,5 @@
 package spark
 
-import it.unibo.scarlib.core.model.EpidemicState
 import org.apache.spark.sql.{DataFrame, SparkSession, types}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
